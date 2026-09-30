@@ -1216,7 +1216,15 @@ addEventListener('keydown', e => {
   else if (e.key.toLowerCase() === 's') cycleSpeed();
   else if (e.key.toLowerCase() === 'f') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); }
 });
+/* iPhone: Safari's speech engine interrupts the music and effects each time it speaks; bring them back between sentences */
+let started = false;
+if (IS_IOS) setInterval(() => {
+  if (!started || S.paused || (synth && synth.speaking)) return;
+  if (A.ctx && A.ctx.state !== 'running') A.ctx.resume().catch(() => {});
+  if (music.el && music.el.paused && !music.faded) music.el.play().catch(() => {});
+}, 300);
 $('#btn-start').onclick = () => {
+  started = true;
   if (IS_IOS) music.start();
   initAudio(); unlockAudio(); music.start();
   if (synth) { pickVoice(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } // unlock speech within the user gesture
