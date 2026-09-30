@@ -573,8 +573,18 @@ const bg = p => p.catch(e => { if (!(e instanceof Abort)) console.error(e); });
 
 /* ---------------- audio: synthesized, low-volume ---------------- */
 const A = { ctx: null, master: null, noise: null, amb: null, lastFlap: 0 };
+function unlockAudio() {
+  /* iPhone/iPad: let Web Audio play even when the ring/silent switch is on (Safari 17+) */
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  if (!A.ctx) return;
+  if (A.ctx.state !== 'running') A.ctx.resume().catch(() => {});
+  try { const b = A.ctx.createBuffer(1, 1, 22050), s = A.ctx.createBufferSource(); s.buffer = b; s.connect(A.ctx.destination); s.start(0); } catch (e) {}
+}
+['touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, () => { if (A.ctx && A.ctx.state !== 'running' && !S.paused) unlockAudio(); }, { passive: true }));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && A.ctx && A.ctx.state !== 'running' && !S.paused) A.ctx.resume().catch(() => {}); });
 function initAudio() {
   const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   A.ctx = new C(); A.master = A.ctx.createGain(); A.master.gain.value = 1; A.master.connect(A.ctx.destination);
   const len = A.ctx.sampleRate * 2, buf = A.ctx.createBuffer(1, len, A.ctx.sampleRate), d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
@@ -1201,7 +1211,7 @@ addEventListener('keydown', e => {
   else if (e.key.toLowerCase() === 'f') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); }
 });
 $('#btn-start').onclick = () => {
-  initAudio(); music.start();
+  initAudio(); unlockAudio(); music.start();
   if (synth) { pickVoice(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; synth.speak(u); } // unlock speech within the user gesture
   $('#chrome').classList.add('on');
   go(0);
